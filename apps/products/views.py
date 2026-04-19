@@ -4,29 +4,33 @@ from .models import Category, Product
 from .serializers import CategorySerializer, ProductSerializer
 
 
-# Permiso personalizado por rol
 class IsAdminRole(BasePermission):
     def has_permission(self, request, view):
-        return request.user.role == 'admin'
+        return (
+            request.user.is_authenticated
+            and getattr(request.user, "role", None) == "admin"
+        )
 
 
-# CATEGORY
+def is_safe_method(method):
+    return method in ["GET", "HEAD", "OPTIONS"]
+
+
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.all()
+    queryset = Category.objects.all().order_by("id")
     serializer_class = CategorySerializer
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
-            return [IsAuthenticated()]  # todos pueden ver
-        return [IsAdminRole()]  # solo admin modifica
+        if is_safe_method(self.request.method):
+            return [IsAuthenticated()]
+        return [IsAdminRole()]
 
 
-# PRODUCT
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all()
+    queryset = Product.objects.all().order_by("id")
     serializer_class = ProductSerializer
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
-            return [IsAuthenticated()]  # todos pueden ver productos
-        return [IsAdminRole()]  # solo admin crea/edita/elimina
+        if is_safe_method(self.request.method):
+            return [IsAuthenticated()]
+        return [IsAdminRole()]

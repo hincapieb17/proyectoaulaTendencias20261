@@ -8,4 +8,5 @@ class User(AbstractUser):
         ('admin', 'Admin'),
         ('cliente', 'Cliente'),
     )
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES) 
+    # Aqui le agrego el campo de rol al usuario que ya trae Django por defecto
