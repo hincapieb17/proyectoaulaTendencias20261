@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import ProtectedRoute from "../components/ProtectedRoute";
 import MainLayout from "../layouts/MainLayout";
 import Login from "../pages/Login";
+import Register from "../pages/Register";
 import Dashboard from "../pages/Dashboard";
 import Products from "../pages/Products";
 import Orders from "../pages/Orders";
@@ -13,61 +14,22 @@ function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         <Route
           path="/"
           element={
             <ProtectedRoute>
-              <MainLayout>
-                <Dashboard />
-              </MainLayout>
+              <MainLayout />
             </ProtectedRoute>
           }
-        />
-
-        <Route
-          path="/products"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <Products />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/orders"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <Orders />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/orders/create"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <CreateOrder />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <Profile />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
+        >
+          <Route index element={<Dashboard />} />
+          <Route path="products" element={<Products />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="orders/create" element={<CreateOrder />} />
+          <Route path="profile" element={<Profile />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );

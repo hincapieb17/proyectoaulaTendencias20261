@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/useAuth";
 
@@ -23,27 +23,15 @@ function Login() {
         password,
       });
 
-      console.log("Login response:", response.data);
-
-      // Validar respuesta
       if (!response.data?.access || !response.data?.refresh) {
         throw new Error("El backend no devolvió tokens válidos.");
       }
 
-      // Guardar tokens (usando el contexto)
       login(response.data.access, response.data.refresh);
-
-      console.log("Access guardado:", localStorage.getItem("token"));
-      console.log("Refresh guardado:", localStorage.getItem("refresh"));
-
-      // Redirigir
       navigate("/");
     } catch (err) {
       console.error("Error completo en login:", err);
-      console.error("Respuesta backend:", err?.response);
-      console.error("Data backend:", err?.response?.data);
 
-      // Mostrar error real del backend si existe
       const backendMessage =
         err?.response?.data?.detail ||
         err?.response?.data?.message ||
@@ -57,41 +45,51 @@ function Login() {
   };
 
   return (
-    <div className="center-page">
-      <div className="auth-card">
-        <h1>Iniciar sesión</h1>
-        <p>Ingresa con tu usuario para acceder al sistema.</p>
+    <div style={{ maxWidth: "420px", margin: "40px auto" }}>
+      <h1>Iniciar sesión</h1>
+      <p>Ingresa con tu usuario para acceder al sistema.</p>
 
-        <form onSubmit={handleSubmit} className="form-grid">
-          <div>
-            <label>Usuario</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Tu usuario"
-              required
-            />
-          </div>
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: "12px" }}>
+          <label>Usuario</label>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Tu usuario"
+            required
+            style={{ width: "100%", padding: "10px" }}
+          />
+        </div>
 
-          <div>
-            <label>Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Tu contraseña"
-              required
-            />
-          </div>
+        <div style={{ marginBottom: "12px" }}>
+          <label>Contraseña</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Tu contraseña"
+            required
+            style={{ width: "100%", padding: "10px" }}
+          />
+        </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? "Ingresando..." : "Entrar"}
-          </button>
-        </form>
+        <button
+          type="submit"
+          disabled={loading}
+          style={{ width: "100%", padding: "10px" }}
+        >
+          {loading ? "Ingresando..." : "Entrar"}
+        </button>
 
-        {error && <p className="error-text">{error}</p>}
-      </div>
+        {error && (
+          <p style={{ color: "red", marginTop: "12px" }}>{error}</p>
+        )}
+      </form>
+
+      <p style={{ marginTop: "16px" }}>
+        ¿No tienes cuenta? <Link to="/register">Regístrate</Link>
+      </p>
     </div>
   );
 }
