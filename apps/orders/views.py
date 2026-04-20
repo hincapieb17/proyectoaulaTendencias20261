@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError
 
 from .models import Order
 from .serializers import OrderSerializer, OrderStatusSerializer
-from .services import confirm_order, change_order_status
+from .services import confirm_order, change_order_status, cancel_order
 
 
 class IsAdminRole(BasePermission):
@@ -26,11 +26,17 @@ class OrderViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.role == "admin":
-            return Order.objects.all().prefetch_related("items__product", "customer__user").order_by("-id")
+            return (
+                Order.objects.all()
+                .prefetch_related("items__product", "customer__user")
+                .order_by("-id")
+            )
 
-        return Order.objects.filter(
-            customer__user=user
-        ).prefetch_related("items__product", "customer__user").order_by("-id")
+        return (
+            Order.objects.filter(customer__user=user)
+            .prefetch_related("items__product", "customer__user")
+            .order_by("-id")
+        )
 
     def perform_create(self, serializer):
         serializer.save()
@@ -39,7 +45,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     def confirm(self, request, pk=None):
         order = self.get_object()
 
-        # Si el usuario es cliente, solo puede confirmar sus propios pedidos draft
         if request.user.role != "admin" and order.customer.user != request.user:
             raise ValidationError("No tienes permiso para confirmar este pedido.")
 
@@ -52,16 +57,31 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        order = self.get_object()
+
+        if request.user.role != "admin" and order.customer.user != request.user:
+            raise ValidationError("No tienes permiso para cancelar este pedido.")
+
+        try:
+            cancel_order(order)
+        except DjangoValidationError as e:
+            raise ValidationError(e.messages)
+
+        serializer = self.get_serializer(order)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
     def change_status(self, request, pk=None):
         order = self.get_object()
 
-        # Solo admin puede cambiar estados manualmente
         if request.user.role != "admin":
-            raise ValidationError("Solo el administrador puede cambiar el estado del pedido.")
+            raise ValidationError(
+                "Solo el administrador puede cambiar el estado del pedido."
+            )
 
         serializer = OrderStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         new_status = serializer.validated_data["status"]
 
         try:
