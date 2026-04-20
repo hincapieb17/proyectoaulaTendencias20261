@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import "../styles/orders.css";
 
@@ -29,31 +29,41 @@ function Orders() {
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
 
   const isAdmin = profile?.role === "admin";
-  const isClient = !isAdmin;
-
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const [ordersRes, profileRes] = await Promise.all([
-        api.get("/orders/orders/"),
-        api.get("/users/profile/"),
-      ]);
-
-      setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
-      setProfile(profileRes.data || null);
-    } catch (err) {
-      console.error(err);
-      setError("No se pudieron cargar los pedidos.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const isClient = profile?.role === "cliente";
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    let ignore = false;
+
+    async function fetchInitialData() {
+      try {
+        const [ordersRes, profileRes] = await Promise.all([
+          api.get("/orders/orders/"),
+          api.get("/users/profile/"),
+        ]);
+
+        if (ignore) return;
+
+        setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
+        setProfile(profileRes.data || null);
+        setError("");
+      } catch (err) {
+        console.error(err);
+
+        if (ignore) return;
+        setError("No se pudieron cargar los pedidos.");
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchInitialData();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const formatCurrency = (value) => {
     const number = Number(value || 0);
