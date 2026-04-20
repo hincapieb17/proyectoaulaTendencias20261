@@ -1,17 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
-import OrderStatusBadge from "../components/OrderStatusBadge";
+import "../styles/orders.css";
 
 function Orders() {
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
 
   useEffect(() => {
     let ignore = false;
 
     async function fetchOrders() {
       try {
+        if (!ignore) {
+          setLoading(true);
+          setError("");
+        }
+
         const response = await api.get("/orders/orders/");
 
         if (!ignore) {
@@ -19,9 +24,12 @@ function Orders() {
         }
       } catch (err) {
         console.error(err);
-
         if (!ignore) {
           setError("No se pudieron cargar los pedidos.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
         }
       }
     }
@@ -33,123 +41,198 @@ function Orders() {
     };
   }, []);
 
-  const reloadOrders = async () => {
-    try {
-      const response = await api.get("/orders/orders/");
-      setOrders(response.data);
-    } catch (err) {
-      console.error(err);
-      setError("No se pudieron cargar los pedidos.");
+  const totalOrders = orders.length;
+
+  const deliveredOrders = useMemo(
+    () => orders.filter((o) => o.status === "delivered").length,
+    [orders]
+  );
+
+  const cancelledOrders = useMemo(
+    () => orders.filter((o) => o.status === "cancelled").length,
+    [orders]
+  );
+
+  const activeOrders = useMemo(
+    () =>
+      orders.filter((o) =>
+        ["draft", "confirmed", "preparing", "shipped"].includes(o.status)
+      ).length,
+    [orders]
+  );
+
+  const formatCurrency = (value) => {
+    const number = Number(value || 0);
+    return number.toLocaleString("es-CO", {
+      style: "currency",
+      currency: "COP",
+      minimumFractionDigits: 2,
+    });
+  };
+
+  const translateOrderStatus = (status) => {
+    switch (status) {
+      case "draft":
+        return "Borrador";
+      case "confirmed":
+        return "Confirmado";
+      case "preparing":
+        return "En preparación";
+      case "shipped":
+        return "Enviado";
+      case "delivered":
+        return "Entregado";
+      case "cancelled":
+        return "Cancelado";
+      default:
+        return status;
     }
   };
 
-  const confirmOrder = async (id) => {
-    setMessage("");
-    setError("");
-
-    try {
-      await api.post(`/orders/orders/${id}/confirm/`);
-      setMessage("Pedido confirmado correctamente.");
-      await reloadOrders();
-    } catch (err) {
-      console.error(err);
-      setError("No se pudo confirmar el pedido.");
+  const getOrderStatusClass = (status) => {
+    switch (status) {
+      case "draft":
+        return "orders-badge orders-badge--draft";
+      case "confirmed":
+        return "orders-badge orders-badge--confirmed";
+      case "preparing":
+        return "orders-badge orders-badge--preparing";
+      case "shipped":
+        return "orders-badge orders-badge--shipped";
+      case "delivered":
+        return "orders-badge orders-badge--delivered";
+      case "cancelled":
+        return "orders-badge orders-badge--cancelled";
+      default:
+        return "orders-badge";
     }
   };
 
-  const changeStatus = async (id, status) => {
-    setMessage("");
-    setError("");
-
-    try {
-      await api.post(`/orders/orders/${id}/change_status/`, { status });
-      setMessage(`Estado cambiado a ${status}.`);
-      await reloadOrders();
-    } catch (err) {
-      console.error(err);
-      setError("No se pudo cambiar el estado del pedido.");
-    }
-  };
+  if (loading) {
+    return (
+      <div className="orders-page">
+        <div className="orders-loading">Cargando pedidos...</div>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="page-header">
-        <h1>Pedidos</h1>
-        <p>Consulta y administra los pedidos registrados.</p>
-      </div>
+    <div className="orders-page">
+      <section className="orders-header">
+        <div className="orders-header__left">
+          <span className="orders-header__label">Gestión operativa</span>
+          <h1>Pedidos</h1>
+          <p>
+            Consulta y administra los pedidos registrados desde una vista clara,
+            sobria y profesional.
+          </p>
+        </div>
 
-      {message && <p className="success-text">{message}</p>}
-      {error && <p className="error-text">{error}</p>}
-
-      <div className="grid-cards">
-        {orders.map((order) => (
-          <div className="card" key={order.id}>
-            <h3>Pedido #{order.id}</h3>
-            <p><strong>Cliente:</strong> {order.customer_name}</p>
-            <p><strong>Subtotal:</strong> ${order.subtotal}</p>
-            <p><strong>Descuento:</strong> ${order.discount}</p>
-            <p><strong>Total:</strong> ${order.total}</p>
-            <p><strong>Estado:</strong> <OrderStatusBadge status={order.status} /></p>
-
-            <div>
-              <h4>Ítems</h4>
-              <ul>
-                {order.items.map((item) => (
-                  <li key={item.id}>
-                    {item.product_name} x {item.quantity} - ${item.subtotal}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="actions-row">
-              {order.status === "draft" && (
-                <button className="btn btn-primary" onClick={() => confirmOrder(order.id)}>
-                  Confirmar
-                </button>
-              )}
-
-              {order.status === "confirmed" && (
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => changeStatus(order.id, "preparing")}
-                >
-                  Pasar a preparación
-                </button>
-              )}
-
-              {order.status === "preparing" && (
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => changeStatus(order.id, "shipped")}
-                >
-                  Marcar como enviado
-                </button>
-              )}
-
-              {order.status === "shipped" && (
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => changeStatus(order.id, "delivered")}
-                >
-                  Marcar como entregado
-                </button>
-              )}
-
-              {(order.status === "draft" ||
-                order.status === "confirmed" ||
-                order.status === "preparing") && (
-                <button
-                  className="btn btn-danger"
-                  onClick={() => changeStatus(order.id, "cancelled")}
-                >
-                  Cancelar
-                </button>
-              )}
-            </div>
+        <div className="orders-stats">
+          <div className="orders-stat-card">
+            <span>Total pedidos</span>
+            <strong>{totalOrders}</strong>
           </div>
-        ))}
-      </div>
+
+          <div className="orders-stat-card">
+            <span>Entregados</span>
+            <strong>{deliveredOrders}</strong>
+          </div>
+
+          <div className="orders-stat-card">
+            <span>Cancelados</span>
+            <strong>{cancelledOrders}</strong>
+          </div>
+
+          <div className="orders-stat-card">
+            <span>Activos</span>
+            <strong>{activeOrders}</strong>
+          </div>
+        </div>
+      </section>
+
+      {error && <div className="orders-alert orders-alert--error">{error}</div>}
+
+      <section className="orders-section">
+        <div className="orders-section__title">
+          <h2>Listado de pedidos</h2>
+          <p>
+            Visualiza el estado, resumen financiero e ítems de cada pedido.
+          </p>
+        </div>
+
+        {orders.length === 0 ? (
+          <div className="orders-empty">No hay pedidos registrados todavía.</div>
+        ) : (
+          <div className="orders-grid-pro">
+            {orders.map((order) => (
+              <article key={order.id} className="order-card-pro">
+                <div className="order-card-pro__top">
+                  <div>
+                    <span className="order-card-pro__number">
+                      Pedido #{order.id}
+                    </span>
+                    <h3>
+                      {order.customer_name ||
+                        order.customer?.full_name ||
+                        order.customer?.username ||
+                        "Cliente"}
+                    </h3>
+                  </div>
+
+                  <span className={getOrderStatusClass(order.status)}>
+                    {translateOrderStatus(order.status)}
+                  </span>
+                </div>
+
+                <div className="order-card-pro__summary">
+                  <div className="order-metric">
+                    <span>Subtotal</span>
+                    <strong>{formatCurrency(order.subtotal)}</strong>
+                  </div>
+
+                  <div className="order-metric">
+                    <span>Descuento</span>
+                    <strong>{formatCurrency(order.discount)}</strong>
+                  </div>
+
+                  <div className="order-metric order-metric--total">
+                    <span>Total</span>
+                    <strong>{formatCurrency(order.total)}</strong>
+                  </div>
+                </div>
+
+                <div className="order-card-pro__items">
+                  <h4>Ítems del pedido</h4>
+
+                  {order.items?.length ? (
+                    <ul>
+                      {order.items.map((item) => (
+                        <li key={item.id}>
+                          <div>
+                            <strong>
+                              {item.product_name || item.product?.name || "Producto"}
+                            </strong>
+                            <span>
+                              Cantidad: {item.quantity} · Unitario:{" "}
+                              {formatCurrency(item.unit_price)}
+                            </span>
+                          </div>
+                          <b>{formatCurrency(item.subtotal)}</b>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="order-card-pro__empty-items">
+                      Este pedido no tiene ítems.
+                    </p>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

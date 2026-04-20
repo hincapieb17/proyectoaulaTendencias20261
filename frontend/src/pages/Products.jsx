@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
-import ProductCard from "../components/products/ProductCard";
-import EmptyState from "../components/ui/EmptyState";
+import "../styles/products.css";
 
 function Products() {
   const [products, setProducts] = useState([]);
@@ -28,6 +27,24 @@ function Products() {
     status: "activo",
   });
 
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [editingProductId, setEditingProductId] = useState(null);
+
+  const activeCategories = useMemo(
+    () => categories.filter((c) => c.is_active).length,
+    [categories]
+  );
+
+  const activeProducts = useMemo(
+    () => products.filter((p) => p.status === "activo").length,
+    [products]
+  );
+
+  const lowStockProducts = useMemo(
+    () => products.filter((p) => Number(p.stock) > 0 && Number(p.stock) <= 5).length,
+    [products]
+  );
+
   const loadData = async () => {
     try {
       const [productsRes, categoriesRes, profileRes] = await Promise.all([
@@ -41,7 +58,7 @@ function Products() {
       setIsAdmin(profileRes.data?.role === "admin");
     } catch (err) {
       console.error(err);
-      setError("No se pudieron recargar los datos.");
+      setError("No se pudieron cargar los productos.");
     }
   };
 
@@ -83,9 +100,35 @@ function Products() {
     };
   }, []);
 
+  const clearAlerts = () => {
+    setError("");
+    setMessage("");
+  };
+
+  const resetCategoryForm = () => {
+    setCategoryForm({
+      name: "",
+      description: "",
+      is_active: true,
+    });
+    setEditingCategoryId(null);
+  };
+
+  const resetProductForm = () => {
+    setProductForm({
+      name: "",
+      sku: "",
+      description: "",
+      category: "",
+      price: "",
+      stock: "",
+      status: "activo",
+    });
+    setEditingProductId(null);
+  };
+
   const handleCategoryChange = (e) => {
     const { name, value, type, checked } = e.target;
-
     setCategoryForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -94,29 +137,52 @@ function Products() {
 
   const handleProductChange = (e) => {
     const { name, value } = e.target;
-
     setProductForm((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
-  const handleCreateCategory = async (e) => {
+  const handleEditCategory = (category) => {
+    clearAlerts();
+    setEditingCategoryId(category.id);
+    setCategoryForm({
+      name: category.name || "",
+      description: category.description || "",
+      is_active: Boolean(category.is_active),
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleEditProduct = (product) => {
+    clearAlerts();
+    setEditingProductId(product.id);
+    setProductForm({
+      name: product.name || "",
+      sku: product.sku || "",
+      description: product.description || "",
+      category: product.category || "",
+      price: product.price || "",
+      stock: product.stock || "",
+      status: product.status || "activo",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleSubmitCategory = async (e) => {
     e.preventDefault();
-    setError("");
-    setMessage("");
+    clearAlerts();
 
     try {
-      await api.post("/products/categories/", categoryForm);
+      if (editingCategoryId) {
+        await api.put(`/products/categories/${editingCategoryId}/`, categoryForm);
+        setMessage("Categoría actualizada correctamente.");
+      } else {
+        await api.post("/products/categories/", categoryForm);
+        setMessage("Categoría creada correctamente.");
+      }
 
-      setMessage("Categoría creada correctamente.");
-
-      setCategoryForm({
-        name: "",
-        description: "",
-        is_active: true,
-      });
-
+      resetCategoryForm();
       await loadData();
     } catch (err) {
       console.error(err);
@@ -127,36 +193,32 @@ function Products() {
       } else if (data?.detail) {
         setError(data.detail);
       } else {
-        setError("No se pudo crear la categoría.");
+        setError("No se pudo guardar la categoría.");
       }
     }
   };
 
-  const handleCreateProduct = async (e) => {
+  const handleSubmitProduct = async (e) => {
     e.preventDefault();
-    setError("");
-    setMessage("");
+    clearAlerts();
+
+    const payload = {
+      ...productForm,
+      category: Number(productForm.category),
+      price: Number(productForm.price),
+      stock: Number(productForm.stock),
+    };
 
     try {
-      await api.post("/products/products/", {
-        ...productForm,
-        category: Number(productForm.category),
-        price: Number(productForm.price),
-        stock: Number(productForm.stock),
-      });
+      if (editingProductId) {
+        await api.put(`/products/products/${editingProductId}/`, payload);
+        setMessage("Producto actualizado correctamente.");
+      } else {
+        await api.post("/products/products/", payload);
+        setMessage("Producto creado correctamente.");
+      }
 
-      setMessage("Producto creado correctamente.");
-
-      setProductForm({
-        name: "",
-        sku: "",
-        description: "",
-        category: "",
-        price: "",
-        stock: "",
-        status: "activo",
-      });
-
+      resetProductForm();
       await loadData();
     } catch (err) {
       console.error(err);
@@ -175,75 +237,110 @@ function Products() {
       } else if (data?.detail) {
         setError(data.detail);
       } else {
-        setError("No se pudo crear el producto.");
+        setError("No se pudo guardar el producto.");
       }
     }
   };
 
+  const getProductStatusClass = (status) => {
+    switch (status) {
+      case "activo":
+        return "products-badge products-badge--success";
+      case "agotado":
+        return "products-badge products-badge--danger";
+      case "descontinuado":
+        return "products-badge products-badge--neutral";
+      default:
+        return "products-badge";
+    }
+  };
+
+  const getCategoryStatusClass = (isActive) => {
+    return isActive
+      ? "products-badge products-badge--success"
+      : "products-badge products-badge--neutral";
+  };
+
+  if (loading) {
+    return (
+      <div className="products-page">
+        <div className="products-loading">Cargando catálogo...</div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ maxWidth: "1100px", margin: "30px auto" }}>
-      <h1>Productos</h1>
-      <p>Consulta el catálogo disponible para el sistema.</p>
+    <div className="products-page">
+      <section className="products-header">
+        <div className="products-header__left">
+          <span className="products-header__label">Módulo de catálogo</span>
+          <h1>Gestión de productos</h1>
+          <p>
+            Consulta el catálogo disponible y administra productos y categorías
+            desde una interfaz clara, sobria y profesional.
+          </p>
+        </div>
 
-      {message && (
-        <p style={{ color: "green", marginBottom: "12px" }}>{message}</p>
-      )}
+        <div className="products-stats">
+          <div className="products-stat-card">
+            <span>Total productos</span>
+            <strong>{products.length}</strong>
+          </div>
+          <div className="products-stat-card">
+            <span>Categorías activas</span>
+            <strong>{activeCategories}</strong>
+          </div>
+          <div className="products-stat-card">
+            <span>Productos activos</span>
+            <strong>{activeProducts}</strong>
+          </div>
+          <div className="products-stat-card">
+            <span>Stock bajo</span>
+            <strong>{lowStockProducts}</strong>
+          </div>
+        </div>
+      </section>
 
-      {error && (
-        <p style={{ color: "red", marginBottom: "12px" }}>{error}</p>
-      )}
+      {message && <div className="products-alert products-alert--success">{message}</div>}
+      {error && <div className="products-alert products-alert--error">{error}</div>}
 
       {isAdmin && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "24px",
-            marginBottom: "32px",
-          }}
-        >
-          <section
-            style={{
-              padding: "20px",
-              border: "1px solid #ddd",
-              borderRadius: "12px",
-              background: "#fff",
-            }}
-          >
-            <h2>Crear categoría</h2>
+        <section className="products-admin">
+          <div className="products-section-title">
+            <h2>Panel de administración</h2>
+            <p>Solo el administrador puede crear y editar categorías y productos.</p>
+          </div>
 
-            <form onSubmit={handleCreateCategory}>
-              <div style={{ marginBottom: "12px" }}>
-                <label>Nombre</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={categoryForm.name}
-                  onChange={handleCategoryChange}
-                  required
-                  style={{ width: "100%", padding: "10px" }}
-                />
+          <div className="products-admin-grid">
+            <article className="products-panel">
+              <div className="products-panel__header">
+                <h3>{editingCategoryId ? "Editar categoría" : "Nueva categoría"}</h3>
+                <p>Define la estructura del catálogo.</p>
               </div>
 
-              <div style={{ marginBottom: "12px" }}>
-                <label>Descripción</label>
-                <textarea
-                  name="description"
-                  value={categoryForm.description}
-                  onChange={handleCategoryChange}
-                  rows="4"
-                  style={{ width: "100%", padding: "10px" }}
-                />
-              </div>
+              <form className="products-form" onSubmit={handleSubmitCategory}>
+                <div className="products-field">
+                  <label>Nombre</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={categoryForm.name}
+                    onChange={handleCategoryChange}
+                    required
+                  />
+                </div>
 
-              <div style={{ marginBottom: "12px" }}>
-                <label
-                  style={{
-                    display: "flex",
-                    gap: "8px",
-                    alignItems: "center",
-                  }}
-                >
+                <div className="products-field">
+                  <label>Descripción</label>
+                  <textarea
+                    name="description"
+                    value={categoryForm.description}
+                    onChange={handleCategoryChange}
+                    rows="4"
+                  />
+                </div>
+
+                <label className="products-check">
                   <input
                     type="checkbox"
                     name="is_active"
@@ -252,144 +349,247 @@ function Products() {
                   />
                   Categoría activa
                 </label>
+
+                <div className="products-actions">
+                  <button type="submit" className="products-btn products-btn--primary">
+                    {editingCategoryId ? "Guardar cambios" : "Crear categoría"}
+                  </button>
+
+                  {editingCategoryId && (
+                    <button
+                      type="button"
+                      className="products-btn products-btn--secondary"
+                      onClick={resetCategoryForm}
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+              </form>
+            </article>
+
+            <article className="products-panel">
+              <div className="products-panel__header">
+                <h3>{editingProductId ? "Editar producto" : "Nuevo producto"}</h3>
+                <p>Registra o actualiza productos del inventario.</p>
               </div>
 
-              <button type="submit">Crear categoría</button>
-            </form>
-          </section>
+              <form className="products-form" onSubmit={handleSubmitProduct}>
+                <div className="products-field">
+                  <label>Nombre</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={productForm.name}
+                    onChange={handleProductChange}
+                    required
+                  />
+                </div>
 
-          <section
-            style={{
-              padding: "20px",
-              border: "1px solid #ddd",
-              borderRadius: "12px",
-              background: "#fff",
-            }}
-          >
-            <h2>Crear producto</h2>
+                <div className="products-field">
+                  <label>SKU</label>
+                  <input
+                    type="text"
+                    name="sku"
+                    value={productForm.sku}
+                    onChange={handleProductChange}
+                    required
+                  />
+                </div>
 
-            <form onSubmit={handleCreateProduct}>
-              <div style={{ marginBottom: "12px" }}>
-                <label>Nombre</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={productForm.name}
-                  onChange={handleProductChange}
-                  required
-                  style={{ width: "100%", padding: "10px" }}
-                />
+                <div className="products-field">
+                  <label>Descripción</label>
+                  <textarea
+                    name="description"
+                    value={productForm.description}
+                    onChange={handleProductChange}
+                    rows="4"
+                    required
+                  />
+                </div>
+
+                <div className="products-field">
+                  <label>Categoría</label>
+                  <select
+                    name="category"
+                    value={productForm.category}
+                    onChange={handleProductChange}
+                    required
+                  >
+                    <option value="">Selecciona una categoría</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="products-inline-fields">
+                  <div className="products-field">
+                    <label>Precio</label>
+                    <input
+                      type="number"
+                      name="price"
+                      value={productForm.price}
+                      onChange={handleProductChange}
+                      min="0"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+
+                  <div className="products-field">
+                    <label>Stock</label>
+                    <input
+                      type="number"
+                      name="stock"
+                      value={productForm.stock}
+                      onChange={handleProductChange}
+                      min="0"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="products-field">
+                  <label>Estado</label>
+                  <select
+                    name="status"
+                    value={productForm.status}
+                    onChange={handleProductChange}
+                  >
+                    <option value="activo">Activo</option>
+                    <option value="agotado">Agotado</option>
+                    <option value="descontinuado">Descontinuado</option>
+                  </select>
+                </div>
+
+                <div className="products-actions">
+                  <button type="submit" className="products-btn products-btn--primary">
+                    {editingProductId ? "Guardar cambios" : "Crear producto"}
+                  </button>
+
+                  {editingProductId && (
+                    <button
+                      type="button"
+                      className="products-btn products-btn--secondary"
+                      onClick={resetProductForm}
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+              </form>
+            </article>
+          </div>
+
+          <div className="products-manage-grid">
+            <article className="products-panel">
+              <div className="products-panel__header">
+                <h3>Categorías existentes</h3>
+                <p>Edita categorías registradas.</p>
               </div>
 
-              <div style={{ marginBottom: "12px" }}>
-                <label>SKU</label>
-                <input
-                  type="text"
-                  name="sku"
-                  value={productForm.sku}
-                  onChange={handleProductChange}
-                  required
-                  style={{ width: "100%", padding: "10px" }}
-                />
+              <div className="products-list">
+                {categories.length === 0 ? (
+                  <div className="products-empty">No hay categorías registradas.</div>
+                ) : (
+                  categories.map((category) => (
+                    <div key={category.id} className="products-list-item">
+                      <div className="products-list-item__info">
+                        <strong>{category.name}</strong>
+                        <p>{category.description || "Sin descripción."}</p>
+                      </div>
+
+                      <div className="products-list-item__side">
+                        <span className={getCategoryStatusClass(category.is_active)}>
+                          {category.is_active ? "Activa" : "Inactiva"}
+                        </span>
+                        <button
+                          className="products-btn products-btn--secondary"
+                          onClick={() => handleEditCategory(category)}
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </article>
+
+            <article className="products-panel">
+              <div className="products-panel__header">
+                <h3>Productos existentes</h3>
+                <p>Edita productos ya creados.</p>
               </div>
 
-              <div style={{ marginBottom: "12px" }}>
-                <label>Descripción</label>
-                <textarea
-                  name="description"
-                  value={productForm.description}
-                  onChange={handleProductChange}
-                  rows="4"
-                  required
-                  style={{ width: "100%", padding: "10px" }}
-                />
-              </div>
+              <div className="products-list">
+                {products.length === 0 ? (
+                  <div className="products-empty">No hay productos registrados.</div>
+                ) : (
+                  products.map((product) => (
+                    <div key={product.id} className="products-list-item">
+                      <div className="products-list-item__info">
+                        <strong>{product.name}</strong>
+                        <p>
+                          SKU: {product.sku} · Stock: {product.stock} · Precio: ${product.price}
+                        </p>
+                      </div>
 
-              <div style={{ marginBottom: "12px" }}>
-                <label>Categoría</label>
-                <select
-                  name="category"
-                  value={productForm.category}
-                  onChange={handleProductChange}
-                  required
-                  style={{ width: "100%", padding: "10px" }}
-                >
-                  <option value="">Selecciona una categoría</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                      <div className="products-list-item__side">
+                        <span className={getProductStatusClass(product.status)}>
+                          {product.status}
+                        </span>
+                        <button
+                          className="products-btn products-btn--secondary"
+                          onClick={() => handleEditProduct(product)}
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-
-              <div style={{ marginBottom: "12px" }}>
-                <label>Precio</label>
-                <input
-                  type="number"
-                  name="price"
-                  value={productForm.price}
-                  onChange={handleProductChange}
-                  required
-                  min="0"
-                  step="0.01"
-                  style={{ width: "100%", padding: "10px" }}
-                />
-              </div>
-
-              <div style={{ marginBottom: "12px" }}>
-                <label>Stock</label>
-                <input
-                  type="number"
-                  name="stock"
-                  value={productForm.stock}
-                  onChange={handleProductChange}
-                  required
-                  min="0"
-                  style={{ width: "100%", padding: "10px" }}
-                />
-              </div>
-
-              <div style={{ marginBottom: "12px" }}>
-                <label>Estado</label>
-                <select
-                  name="status"
-                  value={productForm.status}
-                  onChange={handleProductChange}
-                  style={{ width: "100%", padding: "10px" }}
-                >
-                  <option value="activo">Activo</option>
-                  <option value="agotado">Agotado</option>
-                  <option value="descontinuado">Descontinuado</option>
-                </select>
-              </div>
-
-              <button type="submit">Crear producto</button>
-            </form>
-          </section>
-        </div>
+            </article>
+          </div>
+        </section>
       )}
 
-      {loading ? (
-        <p>Cargando productos...</p>
-      ) : products.length === 0 ? (
-        <EmptyState
-          title="Sin productos"
-          description="Todavía no hay productos registrados."
-        />
-      ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-            gap: "16px",
-          }}
-        >
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+      <section className="products-catalog">
+        <div className="products-section-title">
+          <h2>Catálogo disponible</h2>
+          <p>Vista limpia y amigable de los productos disponibles en la plataforma.</p>
         </div>
-      )}
+
+        {products.length === 0 ? (
+          <div className="products-empty">Todavía no hay productos registrados.</div>
+        ) : (
+          <div className="products-catalog-grid">
+            {products.map((product) => (
+              <article key={product.id} className="products-card">
+                <div className="products-card__top">
+                  <span className={getProductStatusClass(product.status)}>
+                    {product.status}
+                  </span>
+                </div>
+
+                <h3>{product.name}</h3>
+                <p className="products-card__desc">{product.description}</p>
+
+                <div className="products-card__meta">
+                  <span>SKU: {product.sku}</span>
+                  <span>Stock: {product.stock}</span>
+                </div>
+
+                <div className="products-card__price">${product.price}</div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
