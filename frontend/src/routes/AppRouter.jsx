@@ -8,6 +8,8 @@ import Products from "../pages/Products";
 import Orders from "../pages/Orders";
 import CreateOrder from "../pages/CreateOrder";
 import Profile from "../pages/Profile";
+import History from "../pages/History";
+import Reports from "../pages/Reports";
 
 function AppRouter() {
   return (
@@ -29,6 +31,8 @@ function AppRouter() {
           <Route path="orders" element={<Orders />} />
           <Route path="orders/create" element={<CreateOrder />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="history" element={<History />} />
+          <Route path="reports" element={<Reports />} />
         </Route>
       </Routes>
     </BrowserRouter>

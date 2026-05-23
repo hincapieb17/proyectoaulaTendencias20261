@@ -1,7 +1,7 @@
 from django.db import transaction
 from rest_framework import serializers
 from apps.products.models import Product
-from .models import Order, OrderItem
+from .models import Order, OrderItem, Return, ReturnItem
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -32,6 +32,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "subtotal",
             "discount",
             "total",
+            "cancellation_reason",
+            "cancelled_at",
             "created_at",
             "updated_at",
             "items",
@@ -42,6 +44,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "subtotal",
             "discount",
             "total",
+            "cancellation_reason",
+            "cancelled_at",
             "created_at",
             "updated_at",
         ]
@@ -150,3 +154,78 @@ class OrderStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(
         choices=["confirmed", "preparing", "shipped", "delivered", "cancelled"]
     )
+    
+    
+
+class ReturnItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(
+        source="order_item.product.name",
+        read_only=True
+    )
+
+    product_id = serializers.IntegerField(
+        source="order_item.product.id",
+        read_only=True
+    )
+
+    class Meta:
+        model = ReturnItem
+        fields = [
+            "id",
+            "order_item",
+            "product_id",
+            "product_name",
+            "quantity",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "product_id",
+            "product_name",
+            "created_at",
+        ]
+
+
+class ReturnSerializer(serializers.ModelSerializer):
+    items = ReturnItemSerializer(many=True, read_only=True)
+    order_id = serializers.IntegerField(source="order.id", read_only=True)
+
+    class Meta:
+        model = Return
+        fields = [
+            "id",
+            "order_id",
+            "reason",
+            "items",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "order_id",
+            "items",
+            "created_at",
+        ]
+
+
+class ReturnItemCreateSerializer(serializers.Serializer):
+    order_item = serializers.IntegerField()
+    quantity = serializers.IntegerField()
+
+    def validate_quantity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError(
+                "La cantidad a devolver debe ser mayor que cero."
+            )
+        return value
+
+
+class ReturnCreateSerializer(serializers.Serializer):
+    reason = serializers.CharField()
+    items = ReturnItemCreateSerializer(many=True)
+
+    def validate_reason(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError(
+                "Debe ingresar un motivo para la devolución."
+            )
+        return value

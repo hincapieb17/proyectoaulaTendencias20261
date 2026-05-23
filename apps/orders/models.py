@@ -44,6 +44,15 @@ class Order(models.Model):
         decimal_places=2,
         default=Decimal('0.00')
     )
+    
+    cancellation_reason = models.TextField(
+    blank=True,
+    null=True
+    )
+    cancelled_at = models.DateTimeField(
+        blank=True,
+        null=True
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -116,3 +125,39 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"
+
+
+class Return(models.Model):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="returns"
+    )
+
+    reason = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Devolución #{self.id} - Pedido #{self.order.id}"
+
+
+class ReturnItem(models.Model):
+    order_return = models.ForeignKey(
+        Return,
+        on_delete=models.CASCADE,
+        related_name="items"
+    )
+
+    order_item = models.ForeignKey(
+        OrderItem,
+        on_delete=models.CASCADE,
+        related_name="return_items"
+    )
+
+    quantity = models.PositiveIntegerField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Devolución de {self.quantity} unidad(es) - {self.order_item.product.name}"

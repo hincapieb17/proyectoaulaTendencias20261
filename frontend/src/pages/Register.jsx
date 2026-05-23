@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
+import "../styles/auth.css";
 
 function Register() {
   const [username, setUsername] = useState("");
@@ -30,97 +31,105 @@ function Register() {
     setLoading(true);
 
     try {
-      await api.post("/users/register/", {
-        username,
-        password,
-      });
-
-      setMessage("Cuenta creada correctamente. Ahora puedes iniciar sesión.");
-
-      setTimeout(() => {
-        navigate("/login");
-      }, 1200);
+      await api.post("/users/register/", { username, password });
+      setMessage("Cuenta creada correctamente. Redirigiendo al login...");
+      setTimeout(() => navigate("/login"), 1200);
     } catch (err) {
-      console.error("Error en registro:", err);
-
-      const backendData = err?.response?.data;
-
-      if (backendData?.username?.[0]) {
-        setError(backendData.username[0]);
-      } else if (backendData?.password?.[0]) {
-        setError(backendData.password[0]);
-      } else if (backendData?.detail) {
-        setError(backendData.detail);
-      } else {
-        setError("No se pudo crear la cuenta.");
-      }
+      const data = err?.response?.data;
+      setError(
+        data?.username?.[0] ||
+          data?.password?.[0] ||
+          data?.detail ||
+          "No se pudo crear la cuenta."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: "420px", margin: "40px auto" }}>
-      <h1>Registrarse</h1>
-      <p>Crea una cuenta nueva como cliente.</p>
+    <div className="auth-screen">
+      {/* Panel izquierdo */}
+      <div className="auth-brand">
+        <span className="auth-brand__icon">🚀</span>
+        <span className="auth-brand__label">Únete hoy</span>
+        <h1>Crea tu cuenta</h1>
+        <p>
+          Regístrate como cliente y empieza a realizar pedidos de forma rápida,
+          simple y segura.
+        </p>
+        <ul className="auth-brand__features">
+          <li>Acceso al catálogo completo</li>
+          <li>Gestiona tus pedidos fácilmente</li>
+          <li>Consulta tu historial en cualquier momento</li>
+          <li>Solicita devoluciones sin complicaciones</li>
+        </ul>
+      </div>
 
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: "12px" }}>
-          <label>Usuario</label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Tu usuario"
-            required
-            style={{ width: "100%", padding: "10px" }}
-          />
+      {/* Panel derecho — formulario */}
+      <div className="auth-form-panel">
+        <div className="auth-card">
+          <div className="auth-card__header">
+            <h2>Nueva cuenta</h2>
+            <p>Completa los datos para registrarte como cliente.</p>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <div className="auth-field">
+              <label htmlFor="username">Usuario</label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Elige un nombre de usuario"
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="auth-field">
+              <label htmlFor="password">Contraseña</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mínimo 8 caracteres"
+                required
+              />
+            </div>
+
+            <div className="auth-field">
+              <label htmlFor="confirmPassword">Confirmar contraseña</label>
+              <input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repite tu contraseña"
+                required
+              />
+            </div>
+
+            <button type="submit" className="auth-submit" disabled={loading}>
+              {loading ? "Creando cuenta..." : "Crear cuenta"}
+            </button>
+
+            {error && (
+              <div className="auth-alert auth-alert--error">{error}</div>
+            )}
+            {message && (
+              <div className="auth-alert auth-alert--success">{message}</div>
+            )}
+          </form>
+
+          <div className="auth-card__footer">
+            ¿Ya tienes cuenta?{" "}
+            <Link to="/login">Inicia sesión</Link>
+          </div>
         </div>
-
-        <div style={{ marginBottom: "12px" }}>
-          <label>Contraseña</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Mínimo 8 caracteres"
-            required
-            style={{ width: "100%", padding: "10px" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "12px" }}>
-          <label>Confirmar contraseña</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Repite la contraseña"
-            required
-            style={{ width: "100%", padding: "10px" }}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{ width: "100%", padding: "10px" }}
-        >
-          {loading ? "Creando cuenta..." : "Crear cuenta"}
-        </button>
-      </form>
-
-      {message && (
-        <p style={{ color: "green", marginTop: "12px" }}>{message}</p>
-      )}
-
-      {error && (
-        <p style={{ color: "red", marginTop: "12px" }}>{error}</p>
-      )}
-
-      <p style={{ marginTop: "16px" }}>
-        ¿Ya tienes cuenta? <Link to="/login">Inicia sesión</Link>
-      </p>
+      </div>
     </div>
   );
 }
