@@ -232,3 +232,21 @@
   padding: 1.5rem 1.25rem;
   text-align: center;
 }
+
+.btn-pdf {
+  padding: 0.55rem 1.2rem;
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.15s;
+  white-space: nowrap;
+}
+
+.btn-pdf:hover {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}
