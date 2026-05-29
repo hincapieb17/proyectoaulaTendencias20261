@@ -87,12 +87,18 @@ function CreateOrder() {
     setError("");
 
     if (!selectedCustomer) {
-      setError("Debes seleccionar un cliente.");
+      setError("Debes completar tu perfil antes de crear un pedido. Ve a 'Mi perfil' y guarda tus datos.");
       return;
     }
 
     if (items.length === 0) {
       setError("Debes agregar al menos un producto.");
+      return;
+    }
+
+    const invalidItem = items.find((i) => !i.quantity || i.quantity < 1);
+    if (invalidItem) {
+      setError(`La cantidad de "${invalidItem.product_name}" debe ser mayor a 0.`);
       return;
     }
 
@@ -105,11 +111,20 @@ function CreateOrder() {
         })),
       });
 
-      setMessage("Pedido creado correctamente.");
+      setMessage("¡Pedido creado correctamente! Ve a 'Pedidos' para confirmarlo.");
       setItems([]);
     } catch (err) {
       console.error(err);
-      setError("No se pudo crear el pedido.");
+      const data = err?.response?.data;
+      const msg =
+        typeof data === "string"
+          ? data
+          : data?.detail ||
+            data?.non_field_errors?.[0] ||
+            (Array.isArray(data) ? data[0] : null) ||
+            JSON.stringify(data) ||
+            "No se pudo crear el pedido.";
+      setError(msg);
     }
   };
 
@@ -119,9 +134,6 @@ function CreateOrder() {
         <h1>Crear pedido</h1>
         <p>Selecciona un cliente y agrega productos al pedido.</p>
       </div>
-
-      {message && <p className="success-text">{message}</p>}
-      {error && <p className="error-text">{error}</p>}
 
       <div className="card" style={{ marginBottom: "1.5rem" }}>
         <label>Cliente</label>
@@ -181,6 +193,16 @@ function CreateOrder() {
         )}
 
         <div style={{ marginTop: "1.5rem" }}>
+          {message && (
+            <p style={{ color: "green", marginBottom: "0.75rem", fontWeight: 600 }}>
+              {message}
+            </p>
+          )}
+          {error && (
+            <p style={{ color: "#dc2626", marginBottom: "0.75rem", fontWeight: 600 }}>
+              {error}
+            </p>
+          )}
           <button className="btn btn-primary" onClick={createOrder}>
             Guardar pedido
           </button>
