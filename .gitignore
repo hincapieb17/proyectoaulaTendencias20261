@@ -1,0 +1,27 @@
+# Claude Code
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pycache
+
+# Django
+db.sqlite3
+*.log
+staticfiles/
+
+# Entorno virtual
+venv/
+env/
+.env
+
+# Node
+node_modules/
+frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db
