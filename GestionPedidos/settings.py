@@ -130,4 +130,8 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
     'http://localhost:5173'
 ).split(',')
 
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
