@@ -1,4 +1,4 @@
-# API REST y Frontend Web - Gestión de Pedidos
+# Sistema de Gestión de Pedidos
 
 ## Autor
 
@@ -7,352 +7,274 @@ Ingeniería de Software – Tecnológico de Antioquia
 
 ---
 
+## Proyecto en producción
+
+**Frontend:** https://proyectoaula-tendencias20261-2736.vercel.app/
+
+| Credenciales de prueba | Usuario | Contraseña |
+|------------------------|---------|------------|
+| Administrador          | admin   | admin      |
+
+---
+
 ## Descripción
 
-Proyecto de gestión de pedidos desarrollado con **Django Rest Framework** y un **frontend en React + Vite**.
+Sistema web de gestión de pedidos desarrollado con **Django REST Framework** en el backend y **React + Vite** en el frontend. Permite administrar productos, clientes, pedidos y generar reportes de ventas, con autenticación JWT y control de acceso por roles.
 
-El sistema permite:
+### Funcionalidades principales
 
 - Registro, login y autenticación con JWT
-- Gestión de perfiles de usuario con roles **admin** y **cliente**
-- Gestión de clientes
-- Gestión de categorías y productos
-- Creación de pedidos con múltiples ítems
-- Cálculo automático de subtotal, descuento y total
-- Confirmación de pedidos con validación y reserva de stock
-- Cambio de estados del pedido según transiciones válidas
-- Visualización de información desde el frontend conectado a la API
+- Roles de usuario: **admin** y **cliente**
+- Gestión de categorías y productos con control de stock automático
+- Gestión de perfiles de cliente
+- Creación y gestión de pedidos con múltiples ítems
+- Cálculo automático de subtotal, descuento (10% para pedidos ≥ $500.000) y total
+- Confirmación de pedidos con validación y descuento de stock
+- Cambio de estados del pedido con transiciones controladas
+- Cancelación de pedidos con reintegro automático de stock
+- Registro de devoluciones parciales o totales con reintegro de stock
+- Historial de pedidos
+- Reportes de ventas con top productos, top clientes y pedidos cancelados
+- Renovación automática de tokens JWT sin cerrar sesión
 
 ---
 
 ## Tecnologías
 
 ### Backend
-- Python
-- Django
-- Django Rest Framework
-- SimpleJWT
-- SQLite
+- Python 3.13
+- Django 6
+- Django REST Framework
+- SimpleJWT (autenticación JWT)
+- PostgreSQL (Neon — serverless cloud)
+- dj-database-url
+- WhiteNoise (archivos estáticos)
+- django-cors-headers
 
 ### Frontend
-- React
+- React 18
 - Vite
-- Axios
-- React Router
+- Axios (con interceptores para JWT)
+- React Router v6
 
 ### Pruebas
 - Vitest
 - Testing Library
+
+### Despliegue
+- Vercel (backend como serverless Python + frontend como SPA estática)
+- Neon (PostgreSQL serverless)
 
 ---
 
 ## Roles del sistema
 
 ### Admin
-- Acceso completo a customers, categorías, productos y pedidos
-- Puede consultar todos los pedidos
-- Puede cambiar el estado de los pedidos según las transiciones válidas del sistema
+- Acceso completo a todos los clientes, categorías, productos y pedidos
+- Puede crear, editar y eliminar productos y categorías
+- Puede cambiar el estado de cualquier pedido
+- Puede ver reportes de ventas
 
 ### Cliente
-- Puede registrarse e iniciar sesión
-- Puede gestionar su perfil y su customer
-- Puede consultar únicamente su propia información y sus propios pedidos
+- Se registra con rol cliente automáticamente
+- Puede gestionar su propio perfil y datos de cliente
+- Solo puede ver y gestionar sus propios pedidos
+- Puede confirmar y cancelar sus pedidos
+- Puede registrar devoluciones de pedidos entregados
 
 ---
 
-## Autenticación
+## Autenticación JWT
 
-### Registro
-```bash
-POST /api/users/register/
+El sistema usa JSON Web Tokens. Al hacer login se obtienen dos tokens:
+
+| Token   | Duración | Uso |
+|---------|----------|-----|
+| access  | 30 min   | Se envía en cada petición en el header `Authorization` |
+| refresh | 1 día    | Se usa para renovar el access sin volver a hacer login |
+
 ```
-
-### Body
-```json
-{
-  "username": "cliente1",
-  "password": "123456789"
-}
-```
-
-### Login
-```bash
-POST /api/users/login/
-```
-
-### Body
-```json
-{
-  "username": "cliente1",
-  "password": "123456789"
-}
-```
-
-### Respuesta
-```json
-{
-  "access": "TOKEN",
-  "refresh": "TOKEN"
-}
-```
-
-### Uso del token
-En cada petición protegida:
-
-```bash
 Authorization: Bearer <access_token>
 ```
 
----
-
-## Módulos principales
-
-## 1. Users
-
-### Endpoints
-```bash
-POST   /api/users/register/
-POST   /api/users/login/
-POST   /api/users/token/refresh/
-GET    /api/users/profile/
-PUT    /api/users/profile/
-```
-
-### Reglas
-- Los usuarios nuevos se registran con rol **cliente**
-- El sistema usa autenticación JWT
-- El perfil autenticado puede consultarse y actualizarse
+El frontend renueva el access token automáticamente al expirar usando el interceptor de Axios.
 
 ---
 
-## 2. Customers
+## Endpoints
 
-### Endpoints
-```bash
-POST   /api/customers/customers/
-GET    /api/customers/customers/
-GET    /api/customers/customers/{id}/
-PUT    /api/customers/customers/{id}/
-DELETE /api/customers/customers/{id}/
+### Usuarios — `/api/users/`
+
+```
+POST   /api/users/register/         Registrar nuevo usuario (rol cliente)
+POST   /api/users/login/            Login → devuelve access + refresh tokens
+POST   /api/users/token/refresh/    Renovar access token
+GET    /api/users/profile/          Ver perfil del usuario autenticado
+PUT    /api/users/profile/          Actualizar perfil
 ```
 
-### Reglas
-- El customer se asocia automáticamente al usuario autenticado
-- Un usuario solo puede tener un customer
-- El admin puede ver todos los customers
-- El cliente solo puede ver y gestionar su propio customer
+### Clientes — `/api/customers/`
+
+```
+GET    /api/customers/              Admin: todos | Cliente: solo el suyo
+POST   /api/customers/              Crear perfil de cliente
+GET    /api/customers/{id}/         Ver cliente por ID
+PUT    /api/customers/{id}/         Editar cliente
+DELETE /api/customers/{id}/         Eliminar cliente
+GET    /api/customers/profile/      Perfil del cliente autenticado
+```
+
+### Categorías y Productos — `/api/products/`
+
+```
+GET    /api/products/categories/         Listar categorías (autenticado)
+POST   /api/products/categories/         Crear categoría (solo admin)
+GET    /api/products/categories/{id}/    Ver categoría
+PUT    /api/products/categories/{id}/    Editar categoría (solo admin)
+DELETE /api/products/categories/{id}/    Eliminar categoría (solo admin)
+
+GET    /api/products/products/           Listar productos (autenticado)
+POST   /api/products/products/           Crear producto (solo admin)
+GET    /api/products/products/{id}/      Ver producto
+PUT    /api/products/products/{id}/      Editar producto (solo admin)
+DELETE /api/products/products/{id}/      Eliminar producto (solo admin)
+```
+
+### Pedidos — `/api/orders/`
+
+```
+GET    /api/orders/                          Listar pedidos (admin: todos | cliente: los suyos)
+POST   /api/orders/                          Crear pedido en borrador
+GET    /api/orders/{id}/                     Ver detalle de un pedido
+POST   /api/orders/{id}/confirm/             Confirmar pedido y descontar stock
+POST   /api/orders/{id}/cancel/              Cancelar pedido y reintegrar stock
+POST   /api/orders/{id}/change_status/       Cambiar estado (solo admin)
+GET    /api/orders/{id}/returns/             Ver devoluciones del pedido
+POST   /api/orders/{id}/returns/             Registrar devolución
+```
+
+Filtros disponibles en `GET /api/orders/`:
+- `?status=confirmed`
+- `?start_date=2025-01-01&end_date=2025-12-31`
+
+### Reportes — `/api/reports/`
+
+```
+GET    /api/reports/sales/    Reporte de ventas (solo admin)
+```
+
+Parámetros opcionales: `?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`
+
+Incluye: resumen de ventas, pedidos por estado, top 10 productos más vendidos, top 10 clientes, últimos 20 pedidos cancelados.
 
 ---
 
-## 3. Categories
+## Reglas de negocio
 
-### Endpoints
-```bash
-POST   /api/products/categories/
-GET    /api/products/categories/
-GET    /api/products/categories/{id}/
-PUT    /api/products/categories/{id}/
-DELETE /api/products/categories/{id}/
-```
-
-### Reglas
-- Las categorías se gestionan desde la API
-- El nombre debe ser consistente con la lógica del módulo de productos
-
----
-
-## 4. Products
-
-### Endpoints
-```bash
-POST   /api/products/products/
-GET    /api/products/products/
-GET    /api/products/products/{id}/
-PUT    /api/products/products/{id}/
-DELETE /api/products/products/{id}/
-```
-
-### Ejemplo de creación
-```json
-{
-  "name": "Mouse gamer",
-  "sku": "MOU123",
-  "description": "Mouse RGB",
-  "category": 1,
-  "price": "50000.00",
-  "stock": 10,
-  "status": "activo"
-}
-```
-
-### Reglas
+### Productos
 - El SKU debe ser único
-- Si el stock llega a 0, el producto pasa a **agotado**
-- Si el stock es mayor que 0, el producto puede permanecer **activo**
-- Los productos pueden ser usados para crear ítems de pedidos
+- Si el stock llega a 0, el estado cambia a **agotado** automáticamente
+- Si se repone stock, vuelve a **activo** automáticamente
 
----
-
-## 5. Orders
-
-### Endpoints principales
-```bash
-POST   /api/orders/orders/
-GET    /api/orders/orders/
-GET    /api/orders/orders/{id}/
-PUT    /api/orders/orders/{id}/
-DELETE /api/orders/orders/{id}/
-POST   /api/orders/orders/{id}/confirm/
-POST   /api/orders/orders/{id}/change_status/
-```
-
-### Ejemplo de creación de pedido
-```json
-{
-  "customer": 1,
-  "items": [
-    {
-      "product": 1,
-      "quantity": 2
-    },
-    {
-      "product": 2,
-      "quantity": 1
-    }
-  ]
-}
-```
-
-### Qué hace el módulo de pedidos
-- Permite crear pedidos con múltiples ítems
-- Cada ítem guarda producto, cantidad, precio unitario y subtotal
-- El pedido calcula automáticamente:
-  - subtotal
-  - descuento
-  - total
-
-### Reglas de negocio de pedidos
-- El pedido debe tener al menos un ítem
+### Pedidos
+- Debe tener al menos un ítem
 - No se puede repetir un producto dentro del mismo pedido
 - No se pueden agregar productos agotados
-- No se puede solicitar más cantidad de la disponible
-- El pedido inicia en estado **draft**
-- Las transiciones válidas son:
+- No se puede pedir más cantidad de la disponible en stock
+- El precio unitario se congela al momento de crear el ítem
+- Descuento del 10% si el subtotal supera $500.000
 
-```text
-draft -> confirmed, cancelled
-confirmed -> preparing, cancelled
-preparing -> shipped, cancelled
-shipped -> delivered
-delivered -> sin transición
-cancelled -> sin transición
+### Transiciones de estado
+
+```
+draft     → confirmed, cancelled
+confirmed → preparing, cancelled
+preparing → shipped, cancelled
+shipped   → delivered
+delivered → (estado final)
+cancelled → (estado final)
 ```
 
-### Confirmación del pedido
-Al confirmar un pedido:
+### Confirmación
+- Solo pedidos en estado **draft**
+- Se valida stock de todos los productos antes de descontar
+- Si falta stock en alguno, no se confirma ninguno (transacción atómica)
 
-- Debe estar en estado **draft**
-- Debe tener ítems
-- Se valida stock de todos los productos
-- Si falta stock en alguno, no se confirma
-- Si todo es válido, se descuenta stock
-- El pedido pasa a **confirmed**
+### Cancelación
+- Se puede cancelar desde **draft**, **confirmed** o **preparing**
+- Si estaba en **confirmed** o **preparing**, el stock se reintegra automáticamente
+- No se puede cancelar desde **shipped**, **delivered** o **cancelled**
 
-### Cancelación del pedido
-La lógica de negocio del backend contempla cancelación con estas reglas:
-
-- Se puede cancelar desde:
-  - **draft**
-  - **confirmed**
-  - **preparing**
-- Si se cancela desde **confirmed** o **preparing**, el stock se libera automáticamente
-- No se puede cancelar un pedido **shipped**, **delivered** o ya **cancelled**
+### Devoluciones
+- Solo sobre pedidos en estado **delivered**
+- No se puede devolver más cantidad de la comprada
+- Se descuenta lo ya devuelto en devoluciones anteriores del mismo ítem
+- El stock se reintegra automáticamente al registrar la devolución
 
 ---
 
-## Frontend
+## Estructura del proyecto
 
-El proyecto incluye un frontend en React conectado a la API por medio de Axios.
-
-### Vistas principales del frontend
-- Login
-- Registro
-- Productos
-- Pedidos
-- Perfil
-
-### Integración
-- Manejo de tokens JWT
-- Interceptor para refrescar token automáticamente
-- Consumo de endpoints de autenticación, productos y pedidos
-
----
-
-## Pruebas
-
-Actualmente el proyecto incluye pruebas frontend con **Vitest** y **Testing Library** en páginas como:
-
-- Login
-- Register
-- Products
-- Orders
-
-Estas pruebas validan principalmente renderizado, flujo básico de interfaz y consumo inicial de datos.
-
----
-
-## Seguridad
-
-- Autenticación con JWT
-- Header `Authorization: Bearer <token>`
-- Control de acceso por roles:
-  - **admin**: acceso ampliado
-  - **cliente**: acceso restringido a sus propios recursos
-- Un cliente no puede ver customers de otros usuarios
-- Un cliente no puede consultar pedidos de otros usuarios
-
----
-
-## Estructura general del proyecto
-
-```text
+```
 proyectoaulaTendencias20261/
 │
+├── api/
+│   └── index.py              # Entry point serverless para Vercel
+│
+├── GestionPedidos/
+│   ├── settings.py           # Configuración Django (env vars para producción)
+│   ├── urls.py               # Enrutamiento principal
+│   └── wsgi.py
+│
 ├── apps/
-│   ├── users/
-│   ├── customers/
-│   ├── products/
-│   └── orders/
+│   ├── users/                # Registro, login, perfil
+│   ├── customers/            # Perfil de cliente
+│   ├── products/             # Categorías y productos
+│   ├── orders/               # Pedidos, ítems, devoluciones
+│   └── reports/              # Reportes de ventas
+│
+├── core/
+│   ├── permissions.py        # Permisos personalizados
+│   ├── pagination.py
+│   └── utils.py
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   ├── context/
-│   │   └── styles/
+│   │   ├── pages/            # Login, Register, Dashboard, Products, Orders...
+│   │   ├── components/       # Navbar, ProtectedRoute, UI components
+│   │   ├── context/          # AuthContext y AuthProvider
+│   │   ├── routes/           # AppRouter con rutas protegidas
+│   │   ├── services/         # api.js (Axios + interceptores JWT)
+│   │   └── styles/           # CSS modular por módulo
+│   └── vercel.json           # Configuración SPA para Vercel
 │
-├── config/
-│   ├── settings.py
-│   └── urls.py
-│
+├── vercel.json               # Configuración backend serverless
+├── requirements.txt
 └── manage.py
 ```
 
 ---
 
-## Estado actual del proyecto
+## Despliegue
 
-El repositorio ya incluye:
+El proyecto está desplegado en **Vercel** como dos proyectos separados:
 
-- Backend funcional para users, customers, products y orders
-- Reglas de negocio para stock y transiciones de estado
-- Frontend conectado a la API
-- Pruebas frontend iniciales
+- **Frontend:** https://proyectoaula-tendencias20261-2736.vercel.app/
+- **Backend:** Vercel serverless Python (`@vercel/python`)
+- **Base de datos:** Neon PostgreSQL (serverless, compatible con Vercel)
 
-Como mejora futura, conviene fortalecer:
-
-- pruebas de API para el módulo de pedidos
-- cobertura de casos críticos de stock, cancelación y transiciones
-- cierre completo de flujos de pedidos en interfaz según los requerimientos finales
+Las migraciones se ejecutan apuntando directamente a la base de datos en Neon mediante la variable de entorno `DATABASE_URL`.
 
 ---
+
+## Pruebas
+
+El proyecto incluye pruebas frontend con **Vitest** y **Testing Library** para los módulos:
+
+- Login
+- Register
+- Products
+- Orders
+- Profile
+- AuthProvider
+- ProtectedRoute
